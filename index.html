@@ -674,7 +674,9 @@
 
   function buildBulkDeleteFilterQuery() {
     const type = document.getElementById("bulkDeleteType").value;
-    if (type === "all") return "";
+    // 全件削除の場合も、PostgREST に絞り込み条件なしのDELETEを拒否されないよう
+    // 「id が null でない（＝全行に一致する）」という明示的な条件を付ける
+    if (type === "all") return "id=not.is.null";
     const value = document.getElementById("bulkDeleteValue").value;
     return `${type}=eq.${encodeURIComponent(value)}`;
   }
