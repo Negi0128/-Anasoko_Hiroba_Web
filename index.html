@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Anasoko Hiroba</title>
+<title>Anasokoひろば</title>
 <style>
   :root { color-scheme: light; }
   * { box-sizing: border-box; }
@@ -196,15 +196,18 @@
   .subview.active { display: block; }
 
   .back-btn {
-    background: none;
-    border: none;
+    background: #fff;
+    border: 2px solid #ff5722;
     color: #d84315;
     font-size: 14px;
     font-weight: bold;
-    padding: 8px 0;
-    margin-bottom: 8px;
+    padding: 8px 16px;
+    border-radius: 10px;
+    margin-bottom: 10px;
     cursor: pointer;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
   }
+  .back-btn:active { background: #ffe0b2; }
 
   .genre-filter {
     display: flex;
@@ -297,7 +300,7 @@
   .detail-grid .stat .label { color: #bf360c; font-weight: bold; font-size: 11px; }
   .detail-grid .stat .value { font-size: 16px; font-weight: bold; color: #333; }
 
-  .admin-bar { text-align: right; margin-bottom: 6px; }
+  .admin-bar { display: flex; justify-content: flex-end; gap: 10px; margin-bottom: 6px; }
   .admin-toggle {
     background: none;
     border: none;
@@ -306,6 +309,37 @@
     cursor: pointer;
   }
   .admin-toggle.on { color: #d84315; font-weight: bold; }
+
+  .bulk-delete-panel {
+    display: none;
+    background: #fff;
+    border: 2px solid #ef9a9a;
+    border-radius: 12px;
+    padding: 14px;
+    margin-bottom: 12px;
+  }
+  .bulk-delete-panel.active { display: block; }
+  .bulk-delete-panel h3 { font-size: 14px; color: #c62828; margin: 0 0 10px; }
+  .bulk-delete-panel select, .bulk-delete-panel input {
+    width: 100%;
+    font-size: 14px;
+    padding: 8px 10px;
+    border: 2px solid #eee;
+    border-radius: 8px;
+    margin-bottom: 8px;
+  }
+  .bulk-delete-panel .count-text { font-size: 13px; color: #444; margin-bottom: 8px; }
+  .bulk-delete-panel .danger-btn {
+    background: #c62828;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-size: 13px;
+    font-weight: bold;
+    cursor: pointer;
+  }
+  .bulk-delete-panel .danger-btn:disabled { background: #ccc; cursor: not-allowed; }
 
   .delete-btn {
     background: #ffebee;
@@ -406,7 +440,25 @@
 <body>
 <div class="wrap">
   <h1>🥁 Anasoko Hiroba</h1>
-  <div class="admin-bar"><button class="admin-toggle" id="adminToggle">🔒 管理者</button></div>
+  <div class="admin-bar">
+    <button class="admin-toggle" id="bulkDeleteToggle" style="display:none;">🗑 一括削除</button>
+    <button class="admin-toggle" id="adminToggle">🔒 管理者</button>
+  </div>
+
+  <div id="bulkDeletePanel" class="bulk-delete-panel">
+    <h3>⚠️ 一括削除（元に戻せません）</h3>
+    <select id="bulkDeleteType">
+      <option value="genre">ジャンルで削除</option>
+      <option value="source_pc">送信PCで削除</option>
+      <option value="player_name">プレイヤーで削除</option>
+      <option value="all">全件削除</option>
+    </select>
+    <select id="bulkDeleteValue"></select>
+    <button class="refresh-btn" id="bulkDeleteCheck">対象件数を確認</button>
+    <div class="count-text" id="bulkDeleteCount"></div>
+    <input type="text" id="bulkDeleteConfirmInput" placeholder="確認のため「削除」と入力" style="display:none;">
+    <button class="danger-btn" id="bulkDeleteExecute" style="display:none;" disabled>この内容で削除する</button>
+  </div>
 
   <div class="tabs">
     <button id="tabRecent" class="active">最近のプレイ</button>
@@ -538,6 +590,10 @@
     const btn = document.getElementById("adminToggle");
     btn.textContent = isAdmin ? "🔓 管理者モード中" : "🔒 管理者";
     btn.classList.toggle("on", isAdmin);
+    document.getElementById("bulkDeleteToggle").style.display = isAdmin ? "" : "none";
+    if (!isAdmin) {
+      document.getElementById("bulkDeletePanel").classList.remove("active");
+    }
   }
 
   document.getElementById("adminToggle").addEventListener("click", () => {
@@ -572,6 +628,99 @@
       return false;
     }
   }
+
+  // ---- 管理者: 一括削除（ジャンル／送信PC／プレイヤー／全件） ----
+  document.getElementById("bulkDeleteToggle").addEventListener("click", () => {
+    const panel = document.getElementById("bulkDeletePanel");
+    panel.classList.toggle("active");
+    if (panel.classList.contains("active")) loadBulkDeleteValueOptions();
+  });
+
+  async function loadBulkDeleteValueOptions() {
+    const type = document.getElementById("bulkDeleteType").value;
+    const valueSelect = document.getElementById("bulkDeleteValue");
+    resetBulkDeleteConfirm();
+
+    if (type === "all") {
+      valueSelect.style.display = "none";
+      return;
+    }
+    valueSelect.style.display = "";
+    valueSelect.innerHTML = "<option>読み込み中...</option>";
+
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/scores?select=${type}`, { headers: headers() });
+    const rows = await res.json();
+    const values = Array.from(new Set(rows.map(r => r[type]).filter(Boolean))).sort();
+
+    valueSelect.innerHTML = "";
+    values.forEach(v => {
+      const opt = document.createElement("option");
+      opt.value = v;
+      opt.textContent = v;
+      valueSelect.appendChild(opt);
+    });
+  }
+
+  document.getElementById("bulkDeleteType").addEventListener("change", loadBulkDeleteValueOptions);
+
+  function resetBulkDeleteConfirm() {
+    document.getElementById("bulkDeleteCount").textContent = "";
+    document.getElementById("bulkDeleteConfirmInput").style.display = "none";
+    document.getElementById("bulkDeleteConfirmInput").value = "";
+    document.getElementById("bulkDeleteExecute").style.display = "none";
+    document.getElementById("bulkDeleteExecute").disabled = true;
+  }
+
+  function buildBulkDeleteFilterQuery() {
+    const type = document.getElementById("bulkDeleteType").value;
+    if (type === "all") return "";
+    const value = document.getElementById("bulkDeleteValue").value;
+    return `${type}=eq.${encodeURIComponent(value)}`;
+  }
+
+  document.getElementById("bulkDeleteCheck").addEventListener("click", async () => {
+    const filterQuery = buildBulkDeleteFilterQuery();
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/scores?select=id${filterQuery ? "&" + filterQuery : ""}`,
+      { headers: headers({ "Range": "0-0", "Prefer": "count=exact" }) }
+    );
+    const contentRange = res.headers.get("content-range");
+    const total = contentRange ? parseInt(contentRange.split("/")[1], 10) : 0;
+
+    document.getElementById("bulkDeleteCount").textContent = `${total}件が該当します。`;
+    if (total > 0) {
+      document.getElementById("bulkDeleteConfirmInput").style.display = "";
+      document.getElementById("bulkDeleteExecute").style.display = "";
+      document.getElementById("bulkDeleteExecute").disabled = true;
+    } else {
+      document.getElementById("bulkDeleteConfirmInput").style.display = "none";
+      document.getElementById("bulkDeleteExecute").style.display = "none";
+    }
+  });
+
+  document.getElementById("bulkDeleteConfirmInput").addEventListener("input", (e) => {
+    document.getElementById("bulkDeleteExecute").disabled = e.target.value !== "削除";
+  });
+
+  document.getElementById("bulkDeleteExecute").addEventListener("click", async () => {
+    const filterQuery = buildBulkDeleteFilterQuery();
+    const btn = document.getElementById("bulkDeleteExecute");
+    btn.disabled = true;
+    try {
+      const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/scores${filterQuery ? "?" + filterQuery : ""}`,
+        { method: "DELETE", headers: headers() }
+      );
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      alert("削除しました");
+      resetBulkDeleteConfirm();
+      document.getElementById("bulkDeletePanel").classList.remove("active");
+      if (currentReload) currentReload();
+    } catch (e) {
+      alert("削除に失敗しました");
+      btn.disabled = false;
+    }
+  });
 
   // ---- プレイヤー名の表示・編集 UI（共通部品） ----
   function buildPlayerArea(row, onSaved) {
@@ -647,7 +796,7 @@
     song.textContent = row.song_name || row.title;
     const score = document.createElement("div");
     score.className = "score";
-    score.textContent = row.score.toLocaleString() + (isFullCombo(row) ? " 🌟" : "");
+    score.textContent = row.score.toLocaleString() + (isFullCombo(row) ? " 👑" : "");
     row1.appendChild(song);
     row1.appendChild(score);
 
@@ -865,7 +1014,7 @@
     item.innerHTML = `
       <span class="rank-badge">${rank}位</span>
       <span class="rank-player">${row.player_name ? "👤 " + row.player_name : "どんちゃん"}</span>
-      <span class="rank-score">${row.score.toLocaleString()}${isFullCombo(row) ? " 🌟" : ""}</span>
+      <span class="rank-score">${row.score.toLocaleString()}${isFullCombo(row) ? " 👑" : ""}</span>
     `;
     item.addEventListener("click", () => openScoreDetail(row, rank));
     return item;
@@ -934,7 +1083,7 @@
       <div class="song-name">${row.song_name || row.title}（${courseName(row.course)}）</div>
       <div class="rank-badge">ランキング ${rank}位</div>
       <div class="big-score">${row.score.toLocaleString()}</div>
-      ${isFullCombo(row) ? `<div><span class="fc-badge">🌟 ドンダフルコンボ</span></div><div class="fc-note">※このベストスコアが可・不可0だったという判定です。過去に別のフルコンボがあっても、ベストでなければ記録されていません</div>` : ""}
+      ${isFullCombo(row) ? `<div><span class="fc-badge">👑 全良</span></div><div class="fc-note">※このベストスコアが可・不可0だったという判定です。過去に別の全良があっても、ベストでなければ記録されていません</div>` : ""}
       <div class="detail-grid">
         <div class="stat"><div class="label">良</div><div class="value">${row.great}</div></div>
         <div class="stat"><div class="label">最大コンボ</div><div class="value">${row.max_combo}</div></div>
