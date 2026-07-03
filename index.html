@@ -296,11 +296,34 @@
   }
   .detail-grid .stat .label { color: #bf360c; font-weight: bold; font-size: 11px; }
   .detail-grid .stat .value { font-size: 16px; font-weight: bold; color: #333; }
+
+  .admin-bar { text-align: right; margin-bottom: 6px; }
+  .admin-toggle {
+    background: none;
+    border: none;
+    font-size: 12px;
+    color: #aaa;
+    cursor: pointer;
+  }
+  .admin-toggle.on { color: #d84315; font-weight: bold; }
+
+  .delete-btn {
+    background: #ffebee;
+    border: 1px solid #ef9a9a;
+    color: #c62828;
+    border-radius: 8px;
+    font-size: 12px;
+    padding: 4px 10px;
+    cursor: pointer;
+  }
+  .card-delete { margin-left: auto; }
+  .detail-delete-wrap { text-align: center; margin-top: 14px; }
 </style>
 </head>
 <body>
 <div class="wrap">
   <h1>🥁 Anasoko Hiroba</h1>
+  <div class="admin-bar"><button class="admin-toggle" id="adminToggle">🔒 管理者</button></div>
 
   <div class="tabs">
     <button id="tabRecent" class="active">最近のプレイ</button>
@@ -373,6 +396,49 @@
     return COURSE_NAMES[c] !== undefined ? COURSE_NAMES[c] : `コース${c}`;
   }
 
+  // ---- 管理者モード ----
+  const ADMIN_PASSWORD = "Kaito128";
+  let isAdmin = sessionStorage.getItem("anasoko_admin") === "1";
+
+  function updateAdminToggleUI() {
+    const btn = document.getElementById("adminToggle");
+    btn.textContent = isAdmin ? "🔓 管理者モード中" : "🔒 管理者";
+    btn.classList.toggle("on", isAdmin);
+  }
+
+  document.getElementById("adminToggle").addEventListener("click", () => {
+    if (isAdmin) {
+      isAdmin = false;
+      sessionStorage.removeItem("anasoko_admin");
+      updateAdminToggleUI();
+      return;
+    }
+    const pass = prompt("管理者パスワードを入力してください");
+    if (pass === ADMIN_PASSWORD) {
+      isAdmin = true;
+      sessionStorage.setItem("anasoko_admin", "1");
+      updateAdminToggleUI();
+    } else if (pass !== null) {
+      alert("パスワードが違います");
+    }
+  });
+  updateAdminToggleUI();
+
+  async function deleteScore(id) {
+    if (!confirm("このスコアを削除します。よろしいですか？")) return false;
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/scores?id=eq.${id}`, {
+        method: "DELETE",
+        headers: headers(),
+      });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      return true;
+    } catch (e) {
+      alert("削除に失敗しました");
+      return false;
+    }
+  }
+
   // ---- プレイヤー名の表示・編集 UI（共通部品） ----
   function buildPlayerArea(row, onSaved) {
     const area = document.createElement("div");
@@ -380,7 +446,7 @@
 
     const nameEl = document.createElement("span");
     nameEl.className = "player-name" + (row.player_name ? "" : " unset");
-    nameEl.textContent = row.player_name ? ("👤 " + row.player_name) : "👤 未設定（タップで入力）";
+    nameEl.textContent = row.player_name ? ("👤 " + row.player_name) : "👤 どんちゃん（タップで入力）";
 
     const editWrap = document.createElement("div");
     editWrap.className = "player-edit";
@@ -411,7 +477,7 @@
         });
         if (!res.ok) throw new Error("HTTP " + res.status);
         row.player_name = newName;
-        nameEl.textContent = newName ? ("👤 " + newName) : "👤 未設定（タップで入力）";
+        nameEl.textContent = newName ? ("👤 " + newName) : "👤 どんちゃん（タップで入力）";
         nameEl.className = "player-name" + (newName ? "" : " unset");
         editWrap.classList.remove("active");
         nameEl.style.display = "";
@@ -453,9 +519,24 @@
     meta.className = "meta";
     meta.innerHTML = `<span>${courseName(row.course)}</span><span>${row.genre || ""}</span><span>${formatDate(row.created_at)}</span>`;
 
+    const playerRow = document.createElement("div");
+    playerRow.style.display = "flex";
+    playerRow.style.alignItems = "center";
+    playerRow.appendChild(buildPlayerArea(row));
+
+    if (isAdmin) {
+      const delBtn = document.createElement("button");
+      delBtn.className = "delete-btn card-delete";
+      delBtn.textContent = "🗑 削除";
+      delBtn.addEventListener("click", async () => {
+        if (await deleteScore(row.id)) card.remove();
+      });
+      playerRow.appendChild(delBtn);
+    }
+
     card.appendChild(row1);
     card.appendChild(meta);
-    card.appendChild(buildPlayerArea(row));
+    card.appendChild(playerRow);
     return card;
   }
 
@@ -598,7 +679,7 @@
     item.className = "rank-row";
     item.innerHTML = `
       <span class="rank-badge">${rank}位</span>
-      <span class="rank-player">${row.player_name ? "👤 " + row.player_name : "未設定"}</span>
+      <span class="rank-player">${row.player_name ? "👤 " + row.player_name : "どんちゃん"}</span>
       <span class="rank-score">${row.score.toLocaleString()}</span>
     `;
     item.addEventListener("click", () => openScoreDetail(row, rank));
@@ -673,6 +754,22 @@
     dateEl.textContent = formatDate(row.created_at);
     content.appendChild(dateEl);
 
+    if (isAdmin) {
+      const delWrap = document.createElement("div");
+      delWrap.className = "detail-delete-wrap";
+      const delBtn = document.createElement("button");
+      delBtn.className = "delete-btn";
+      delBtn.textContent = "🗑 このスコアを削除";
+      delBtn.addEventListener("click", async () => {
+        if (await deleteScore(row.id)) {
+          showRankingSubview("viewSongRanking");
+          loadRanking();
+        }
+      });
+      delWrap.appendChild(delBtn);
+      content.appendChild(delWrap);
+    }
+
     showRankingSubview("viewScoreDetail");
   }
 
@@ -705,4 +802,3 @@
 </script>
 </body>
 </html>
-<!-- redeploy trigger 1783094060 -->
