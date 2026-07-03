@@ -36,6 +36,7 @@
     background: #fff3e0;
     color: #bf360c;
     cursor: pointer;
+    word-break: keep-all;
   }
   .tabs button.active {
     background: #ff5722;
@@ -462,7 +463,7 @@
 
   <div class="tabs">
     <button id="tabRecent" class="active">最近のプレイ</button>
-    <button id="tabHighlights">本日のハイライト</button>
+    <button id="tabHighlights">本日の<wbr>ハイライト</button>
     <button id="tabRanking">曲別ランキング</button>
   </div>
 
@@ -936,7 +937,7 @@
     renderSongList();
   }
 
-  const GENRE_ORDER = ["ポップス", "キッズ", "アニメ", "ボーカロイド", "ゲームミュージック", "バラエティ", "クラシック", "ナムコオリジナル", "その他"];
+  const GENRE_ORDER = ["J-POP", "キッズ", "アニメ", "ボーカロイド", "ゲームミュージック", "バラエティ", "クラシック", "ナムコオリジナル", "その他"];
   const genreCollator = new Intl.Collator("ja");
   function sortGenres(genres) {
     return genres.slice().sort((a, b) => {
