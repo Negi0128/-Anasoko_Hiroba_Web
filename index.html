@@ -517,7 +517,7 @@
 
     const meta = document.createElement("div");
     meta.className = "meta";
-    meta.innerHTML = `<span>${courseName(row.course)}</span><span>${row.genre || ""}</span><span>${formatDate(row.created_at)}</span>`;
+    meta.innerHTML = `<span>${courseName(row.course)}</span><span>${row.genre || ""}</span><span>${formatDate(row.created_at)}</span>${row.source_pc ? `<span>💻 ${row.source_pc}</span>` : ""}`;
 
     const playerRow = document.createElement("div");
     playerRow.style.display = "flex";
@@ -735,6 +735,7 @@
         <div class="stat"><div class="label">最大コンボ</div><div class="value">${row.max_combo}</div></div>
         <div class="stat"><div class="label">連打数</div><div class="value">${row.renda}</div></div>
         <div class="stat"><div class="label">魂ゲージ</div><div class="value">${row.gauge}</div></div>
+        ${row.source_pc ? `<div class="stat"><div class="label">送信元PC</div><div class="value">${row.source_pc}</div></div>` : ""}
       </div>
     `;
     content.appendChild(card);
