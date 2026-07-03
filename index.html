@@ -191,6 +191,111 @@
   .pager span { font-size: 13px; color: #666; }
 
   .empty { text-align: center; color: #999; padding: 24px; }
+
+  .subview { display: none; }
+  .subview.active { display: block; }
+
+  .back-btn {
+    background: none;
+    border: none;
+    color: #d84315;
+    font-size: 14px;
+    font-weight: bold;
+    padding: 8px 0;
+    margin-bottom: 8px;
+    cursor: pointer;
+  }
+
+  .genre-filter {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 10px;
+  }
+  .genre-filter button {
+    padding: 8px 14px;
+    font-size: 13px;
+    font-weight: bold;
+    border: none;
+    border-radius: 999px;
+    background: #4fc3c7;
+    color: #fff;
+    cursor: pointer;
+    opacity: 0.55;
+  }
+  .genre-filter button.active { opacity: 1; }
+
+  .song-list-item {
+    background: #fff;
+    border-radius: 12px;
+    padding: 12px 16px;
+    margin-bottom: 8px;
+    box-shadow: 0 3px 8px rgba(0,0,0,0.06);
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+  }
+  .song-list-item .name { font-weight: bold; font-size: 15px; color: #333; }
+  .song-list-item .genre-tag { font-size: 11px; color: #888; }
+  .song-list-item .arrow { color: #ff8a65; font-size: 18px; }
+
+  .song-header {
+    background: #fff;
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin-bottom: 12px;
+    box-shadow: 0 3px 8px rgba(0,0,0,0.06);
+    text-align: center;
+  }
+  .song-header .name { font-size: 17px; font-weight: bold; color: #d84315; }
+  .song-header .genre-tag { font-size: 12px; color: #888; margin-top: 2px; }
+
+  .rank-row {
+    background: #fff;
+    border-radius: 12px;
+    padding: 12px 16px;
+    margin-bottom: 8px;
+    box-shadow: 0 3px 8px rgba(0,0,0,0.06);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .rank-row .rank-badge { font-size: 14px; padding: 4px 8px; }
+  .rank-row .rank-player { flex: 1; font-size: 14px; color: #555; }
+  .rank-row .rank-score { font-size: 18px; font-weight: bold; color: #ff5722; }
+
+  .detail-card {
+    background: #fff;
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: 0 6px 16px rgba(0,0,0,0.1);
+    text-align: center;
+  }
+  .detail-card .song-name { font-size: 16px; font-weight: bold; color: #d84315; margin-bottom: 12px; }
+  .detail-card .big-score {
+    font-size: 32px;
+    font-weight: bold;
+    color: #ff5722;
+    margin: 8px 0 16px;
+  }
+  .detail-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    text-align: left;
+    margin-top: 12px;
+  }
+  .detail-grid .stat {
+    background: #fff3e0;
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+  .detail-grid .stat .label { color: #bf360c; font-weight: bold; font-size: 11px; }
+  .detail-grid .stat .value { font-size: 16px; font-weight: bold; color: #333; }
 </style>
 </head>
 <body>
@@ -212,16 +317,35 @@
   </div>
 
   <div id="panelRanking" class="panel">
-    <div class="song-picker">
-      <input type="text" id="songSearch" placeholder="曲名で検索...">
-      <select id="songSelect"></select>
-      <div class="course-tabs" id="courseTabs"></div>
+    <!-- 1. 曲一覧 -->
+    <div id="viewSongs" class="subview active">
+      <div class="song-picker">
+        <input type="text" id="songSearch" placeholder="曲名で検索...">
+      </div>
+      <div class="genre-filter" id="genreFilter"></div>
+      <div id="songList"></div>
     </div>
-    <div id="rankingList"></div>
-    <div class="pager">
-      <button id="rankingPrev" disabled>◀ 前へ</button>
-      <span id="rankingPageLabel"></span>
-      <button id="rankingNext">次へ ▶</button>
+
+    <!-- 2. 選んだ曲のランキング一覧 -->
+    <div id="viewSongRanking" class="subview">
+      <button class="back-btn" id="backToSongs">◀ 曲一覧へ</button>
+      <div class="song-header">
+        <div class="name" id="rankingSongName"></div>
+        <div class="genre-tag" id="rankingSongGenre"></div>
+      </div>
+      <div class="course-tabs" id="courseTabs"></div>
+      <div id="rankingList"></div>
+      <div class="pager">
+        <button id="rankingPrev" disabled>◀ 前へ</button>
+        <span id="rankingPageLabel"></span>
+        <button id="rankingNext">次へ ▶</button>
+      </div>
+    </div>
+
+    <!-- 3. スコア詳細 -->
+    <div id="viewScoreDetail" class="subview">
+      <button class="back-btn" id="backToRanking">◀ ランキングへ</button>
+      <div id="scoreDetailContent"></div>
     </div>
   </div>
 </div>
@@ -365,45 +489,99 @@
   document.getElementById("recentPrev").addEventListener("click", () => { recentPage--; loadRecent(); });
   document.getElementById("recentNext").addEventListener("click", () => { recentPage++; loadRecent(); });
 
-  // ---- 曲別ランキング ----
+  // ---- 曲別ランキング: 1) 曲一覧 → 2) ランキング一覧 → 3) スコア詳細 ----
+  const RANKING_COURSES = [3, 4]; // おに・裏のみ
   let rankingPage = 0;
-  let selectedSong = null;
-  let selectedCourse = 3; // デフォルト: おに
-  let allSongs = [];
+  let selectedSong = null; // { title, song_name, genre }
+  let selectedCourse = 3;
+  let allSongs = []; // [{ title, song_name, genre }]
+  let selectedGenre = null; // null = すべて
 
+  function showRankingSubview(id) {
+    ["viewSongs", "viewSongRanking", "viewScoreDetail"].forEach(vid => {
+      document.getElementById(vid).classList.toggle("active", vid === id);
+    });
+  }
+
+  // 1. 曲一覧
   async function loadSongList() {
     const res = await fetch(
-      `${SUPABASE_URL}/rest/v1/scores?select=title,song_name&order=song_name.asc`,
+      `${SUPABASE_URL}/rest/v1/scores?select=title,song_name,genre&order=song_name.asc`,
       { headers: headers() }
     );
     const rows = await res.json();
     const seen = new Map();
-    rows.forEach(r => { if (!seen.has(r.title)) seen.set(r.title, r.song_name || r.title); });
-    allSongs = Array.from(seen.entries()).map(([title, song_name]) => ({ title, song_name }));
-    renderSongOptions(allSongs);
-    if (allSongs.length > 0) {
-      selectedSong = allSongs[0].title;
-      document.getElementById("songSelect").value = selectedSong;
-    }
+    rows.forEach(r => {
+      if (!seen.has(r.title)) {
+        seen.set(r.title, { title: r.title, song_name: r.song_name || r.title, genre: r.genre || "その他" });
+      }
+    });
+    allSongs = Array.from(seen.values());
+    renderGenreFilter();
+    renderSongList();
   }
 
-  function renderSongOptions(list) {
-    const sel = document.getElementById("songSelect");
-    sel.innerHTML = "";
-    list.forEach(s => {
-      const opt = document.createElement("option");
-      opt.value = s.title;
-      opt.textContent = s.song_name;
-      sel.appendChild(opt);
+  function renderGenreFilter() {
+    const genres = Array.from(new Set(allSongs.map(s => s.genre))).sort();
+    const wrap = document.getElementById("genreFilter");
+    wrap.innerHTML = "";
+
+    const allBtn = document.createElement("button");
+    allBtn.textContent = "すべて";
+    if (selectedGenre === null) allBtn.classList.add("active");
+    allBtn.addEventListener("click", () => { selectedGenre = null; renderGenreFilter(); renderSongList(); });
+    wrap.appendChild(allBtn);
+
+    genres.forEach(g => {
+      const btn = document.createElement("button");
+      btn.textContent = g;
+      if (selectedGenre === g) btn.classList.add("active");
+      btn.addEventListener("click", () => { selectedGenre = g; renderGenreFilter(); renderSongList(); });
+      wrap.appendChild(btn);
     });
+  }
+
+  function renderSongList() {
+    const q = document.getElementById("songSearch").value.trim().toLowerCase();
+    let list = allSongs;
+    if (selectedGenre) list = list.filter(s => s.genre === selectedGenre);
+    if (q) list = list.filter(s => s.song_name.toLowerCase().includes(q));
+
+    const listEl = document.getElementById("songList");
+    listEl.innerHTML = "";
+    if (list.length === 0) {
+      listEl.innerHTML = "<div class='empty'>該当する曲がありません</div>";
+      return;
+    }
+    list.forEach(song => {
+      const item = document.createElement("div");
+      item.className = "song-list-item";
+      item.innerHTML = `<div><div class="name">${song.song_name}</div><div class="genre-tag">${song.genre}</div></div><div class="arrow">›</div>`;
+      item.addEventListener("click", () => openSongRanking(song));
+      listEl.appendChild(item);
+    });
+  }
+
+  document.getElementById("songSearch").addEventListener("input", renderSongList);
+
+  // 2. 選んだ曲のランキング一覧
+  function openSongRanking(song) {
+    selectedSong = song;
+    selectedCourse = 3;
+    rankingPage = 0;
+    document.getElementById("rankingSongName").textContent = song.song_name;
+    document.getElementById("rankingSongGenre").textContent = song.genre;
+    renderCourseTabs();
+    loadRanking();
+    showRankingSubview("viewSongRanking");
   }
 
   function renderCourseTabs() {
     const wrap = document.getElementById("courseTabs");
     wrap.innerHTML = "";
-    COURSE_NAMES.forEach((name, idx) => {
+    RANKING_COURSES.forEach(idx => {
       const btn = document.createElement("button");
-      btn.textContent = name;
+      btn.textContent = courseName(idx);
       if (idx === selectedCourse) btn.classList.add("active");
       btn.addEventListener("click", () => {
         selectedCourse = idx;
@@ -415,43 +593,26 @@
     });
   }
 
-  function buildRankingCard(row, rank) {
-    const card = document.createElement("div");
-    card.className = "card";
-
-    const row1 = document.createElement("div");
-    row1.className = "row1";
-    const song = document.createElement("div");
-    song.className = "song";
-    song.innerHTML = `<span class="rank-badge">${rank}位</span> ${row.song_name || row.title}`;
-    const score = document.createElement("div");
-    score.className = "score";
-    score.textContent = row.score.toLocaleString();
-    row1.appendChild(song);
-    row1.appendChild(score);
-
-    const meta = document.createElement("div");
-    meta.className = "meta";
-    meta.innerHTML = `<span>最大コンボ ${row.max_combo}</span><span>${formatDate(row.created_at)}</span>`;
-
-    card.appendChild(row1);
-    card.appendChild(meta);
-    card.appendChild(buildPlayerArea(row));
-    return card;
+  function buildRankRow(row, rank) {
+    const item = document.createElement("div");
+    item.className = "rank-row";
+    item.innerHTML = `
+      <span class="rank-badge">${rank}位</span>
+      <span class="rank-player">${row.player_name ? "👤 " + row.player_name : "未設定"}</span>
+      <span class="rank-score">${row.score.toLocaleString()}</span>
+    `;
+    item.addEventListener("click", () => openScoreDetail(row, rank));
+    return item;
   }
 
   async function loadRanking() {
     const listEl = document.getElementById("rankingList");
-    if (!selectedSong) {
-      listEl.innerHTML = "<div class='empty'>曲を選んでください</div>";
-      return;
-    }
     listEl.innerHTML = "<div class='empty'>読み込み中...</div>";
 
     const from = rankingPage * PAGE_SIZE;
     const to = from + PAGE_SIZE - 1;
     const res = await fetch(
-      `${SUPABASE_URL}/rest/v1/scores?title=eq.${encodeURIComponent(selectedSong)}&course=eq.${selectedCourse}&select=*&order=score.desc`,
+      `${SUPABASE_URL}/rest/v1/scores?title=eq.${encodeURIComponent(selectedSong.title)}&course=eq.${selectedCourse}&select=*&order=score.desc`,
       { headers: headers({ "Range": `${from}-${to}`, "Prefer": "count=exact" }) }
     );
     const rows = await res.json();
@@ -462,7 +623,7 @@
     if (rows.length === 0) {
       listEl.innerHTML = "<div class='empty'>このコースのプレイ記録はまだありません</div>";
     } else {
-      rows.forEach((row, i) => listEl.appendChild(buildRankingCard(row, from + i + 1)));
+      rows.forEach((row, i) => listEl.appendChild(buildRankRow(row, from + i + 1)));
     }
 
     const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
@@ -471,24 +632,51 @@
     document.getElementById("rankingNext").disabled = rankingPage >= totalPages - 1;
   }
 
-  document.getElementById("songSelect").addEventListener("change", (e) => {
-    selectedSong = e.target.value;
-    rankingPage = 0;
-    loadRanking();
-  });
-  document.getElementById("songSearch").addEventListener("input", (e) => {
-    const q = e.target.value.trim().toLowerCase();
-    const filtered = q ? allSongs.filter(s => s.song_name.toLowerCase().includes(q)) : allSongs;
-    renderSongOptions(filtered);
-    if (filtered.length > 0) {
-      selectedSong = filtered[0].title;
-      document.getElementById("songSelect").value = selectedSong;
-      rankingPage = 0;
-      loadRanking();
-    }
-  });
+  document.getElementById("backToSongs").addEventListener("click", () => showRankingSubview("viewSongs"));
   document.getElementById("rankingPrev").addEventListener("click", () => { rankingPage--; loadRanking(); });
   document.getElementById("rankingNext").addEventListener("click", () => { rankingPage++; loadRanking(); });
+
+  // 3. スコア詳細
+  function openScoreDetail(row, rank) {
+    const content = document.getElementById("scoreDetailContent");
+    content.innerHTML = "";
+
+    const card = document.createElement("div");
+    card.className = "detail-card";
+    card.innerHTML = `
+      <div class="song-name">${row.song_name || row.title}（${courseName(row.course)}）</div>
+      <div class="rank-badge">ランキング ${rank}位</div>
+      <div class="big-score">${row.score.toLocaleString()}</div>
+      <div class="detail-grid">
+        <div class="stat"><div class="label">良</div><div class="value">${row.great}</div></div>
+        <div class="stat"><div class="label">可</div><div class="value">${row.good}</div></div>
+        <div class="stat"><div class="label">不可</div><div class="value">${row.miss}</div></div>
+        <div class="stat"><div class="label">最大コンボ</div><div class="value">${row.max_combo}</div></div>
+        <div class="stat"><div class="label">連打数</div><div class="value">${row.renda}</div></div>
+        <div class="stat"><div class="label">魂ゲージ</div><div class="value">${row.gauge}</div></div>
+      </div>
+    `;
+    content.appendChild(card);
+
+    const playerWrap = document.createElement("div");
+    playerWrap.style.marginTop = "16px";
+    playerWrap.style.display = "flex";
+    playerWrap.style.justifyContent = "center";
+    playerWrap.appendChild(buildPlayerArea(row));
+    content.appendChild(playerWrap);
+
+    const dateEl = document.createElement("div");
+    dateEl.style.textAlign = "center";
+    dateEl.style.color = "#999";
+    dateEl.style.fontSize = "12px";
+    dateEl.style.marginTop = "8px";
+    dateEl.textContent = formatDate(row.created_at);
+    content.appendChild(dateEl);
+
+    showRankingSubview("viewScoreDetail");
+  }
+
+  document.getElementById("backToRanking").addEventListener("click", () => showRankingSubview("viewSongRanking"));
 
   // ---- タブ切り替え ----
   const tabRecent = document.getElementById("tabRecent");
@@ -508,7 +696,7 @@
     panelRanking.classList.add("active");
     panelRecent.classList.remove("active");
     if (allSongs.length === 0) {
-      loadSongList().then(() => { renderCourseTabs(); loadRanking(); });
+      loadSongList();
     }
   });
 
