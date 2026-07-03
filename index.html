@@ -630,6 +630,7 @@
         headers: headers(),
       });
       if (!res.ok) throw new Error("HTTP " + res.status);
+      markSongListDirty(); // 曲一覧・ジャンル一覧を次回表示時に作り直す
       return true;
     } catch (e) {
       alert("削除に失敗しました");
@@ -725,7 +726,9 @@
       alert("削除しました");
       resetBulkDeleteConfirm();
       document.getElementById("bulkDeletePanel").classList.remove("active");
+      markSongListDirty(); // 曲一覧・ジャンル一覧を次回表示時に作り直す
       if (currentReload) currentReload();
+      if (document.getElementById("panelRanking").classList.contains("active")) loadSongList();
     } catch (e) {
       alert("削除に失敗しました");
       btn.disabled = false;
@@ -935,6 +938,10 @@
   let selectedCourse = 3;
   let allSongs = []; // [{ title, song_name, genre }]
   let selectedGenre = null; // null = すべて
+  // 削除後、曲一覧・ジャンル一覧のキャッシュが古くなっていることを示すフラグ
+  // （曲やジャンルが消えて0件になった時に、一覧からもきちんと消えるようにするため）
+  let songListDirty = true;
+  function markSongListDirty() { songListDirty = true; }
 
   function showRankingSubview(id) {
     ["viewSongs", "viewSongRanking"].forEach(vid => {
@@ -973,6 +980,7 @@
       }
     });
     allSongs = Array.from(seen.values());
+    songListDirty = false;
     renderGenreFilter();
     renderSongList();
   }
@@ -1110,7 +1118,10 @@
     updateTimestamp("rankingUpdatedAt");
   }
 
-  document.getElementById("backToSongs").addEventListener("click", () => showRankingSubview("viewSongs"));
+  document.getElementById("backToSongs").addEventListener("click", () => {
+    showRankingSubview("viewSongs");
+    if (songListDirty) loadSongList();
+  });
   document.getElementById("rankingPrev").addEventListener("click", () => { rankingPage--; loadRanking(); });
   document.getElementById("rankingNext").addEventListener("click", () => { rankingPage++; loadRanking(); });
   document.getElementById("rankingRefresh").addEventListener("click", () => loadRanking());
@@ -1303,7 +1314,7 @@
   });
   tabRanking.addEventListener("click", () => {
     activateTab(tabRanking, panelRanking);
-    if (allSongs.length === 0) {
+    if (allSongs.length === 0 || songListDirty) {
       loadSongList();
     }
   });
