@@ -936,8 +936,21 @@
     renderSongList();
   }
 
+  const GENRE_ORDER = ["ポップス", "キッズ", "アニメ", "ボーカロイド", "ゲームミュージック", "バラエティ", "クラシック", "ナムコオリジナル", "その他"];
+  const genreCollator = new Intl.Collator("ja");
+  function sortGenres(genres) {
+    return genres.slice().sort((a, b) => {
+      const ia = GENRE_ORDER.indexOf(a);
+      const ib = GENRE_ORDER.indexOf(b);
+      if (ia !== -1 && ib !== -1) return ia - ib;
+      if (ia !== -1) return -1;
+      if (ib !== -1) return 1;
+      return genreCollator.compare(a, b);
+    });
+  }
+
   function renderGenreFilter() {
-    const genres = Array.from(new Set(allSongs.map(s => s.genre))).sort();
+    const genres = sortGenres(Array.from(new Set(allSongs.map(s => s.genre))));
     const wrap = document.getElementById("genreFilter");
     wrap.innerHTML = "";
 
